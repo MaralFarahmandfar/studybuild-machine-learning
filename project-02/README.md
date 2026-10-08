@@ -27,17 +27,30 @@ The data were collected from Minnesota Department of Transportation Automatic Tr
 | `traffic_volume` | Integer | Hourly westbound traffic volume reported by ATR station 301 |
 
 
-🧹 Data Cleaning & Feature Engineering
+## 🧹 Data Cleaning & Feature Engineering
 
-The raw data was cleaned and enriched in a separate, fully reproducible notebook that starts from the raw CSV and ends with assertion checks.
+The raw dataset was cleaned and prepared through a separate reproducible data-cleaning and feature-engineering process.
 
-Main fixes
+### 🔧 Data Cleaning
 
-Merged 7,612 duplicate-timestamp rows into one row per hour (48,204 → 40,575 rows).
-Fixed impossible values: temperature of 0 K, two "stuck" temperature values (276.793 K, 297.888 K) and a 9,831 mm/h rainfall outlier.
-Normalized weather label casing and rebuilt the incomplete holiday column for all 24 hours.
-Result: 0 missing cells; the target traffic_volume is untouched.
+- Merged duplicate hourly records, reducing the dataset from **48,204 to 40,575 observations**.
+- Identified and corrected invalid temperature values and converted temperature from **Kelvin to Celsius**.
+- Detected and corrected an extreme rainfall outlier (**9,831.3 mm/h**).
+- Normalized inconsistent weather labels.
+- Removed the unreliable `holiday` feature due to excessive missing values.
+- Preserved the original `traffic_volume` target without modification.
+- Documented missing time periods and suspicious low traffic values without artificially changing the data.
 
-New features (30): calendar and cyclical time features, weekday-only rush hour, holiday / day-before / day-after flags, weather flags and log-transformed precipitation.
+### ⚙️ Feature Engineering
 
-📄 Full details, evidence and decisions: docs/DATA_CLEANING_REPORT.md 📓 Notebook: traffic_cleaning_feature_engineering_final.ipynb 📦 Clean data: Metro_Traffic_Clean_FE.csv (columns listed in feature_lists.json; do not train on qa_* columns)ll include duplicated timestamps and the anomalies above, so they should be re-run on the cleaned file.
+New features were created to capture important traffic patterns, including:
+
+- Calendar features such as **year, month, weekday, hour, weekend, and season**.
+- **Cyclical time features** for hour, weekday, and month.
+- Weekday **rush-hour indicators**.
+- Weather-related features such as **temperature, freezing, rain, snow, and precipitation**.
+- Log-transformed precipitation features.
+
+The final dataset contains **40,575 observations, 23 model features, the `traffic_volume` target, and 4 QA columns**. QA columns are used only for validation and are not used for model training.
+
+📓 **Notebook:** `data_cleaning.csv`
