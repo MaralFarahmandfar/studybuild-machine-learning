@@ -53,7 +53,7 @@ New features were created to capture important traffic patterns, including:
 
 The final dataset contains **40,575 observations, 23 model features, the `traffic_volume` target, and 4 QA columns**. QA columns are used only for validation and are not used for model training.
 
-📓 **Notebook:** `data_cleaning.csv`
+📓 **Cleaned Dataset:** `data/data_cleaning.csv`
 
 ## 📈 Linear Regression Modeling
 
@@ -69,7 +69,7 @@ The cleaned hourly data were modeled with ordinary least-squares linear regressi
 
 *RMSE and MAE are in vehicles per hour, computed on the chronological test set.*
 
-The decision to leave weather labels out of the features was also tested. The 37 textual weather descriptions were merged into six groups with a similar effect on driving conditions (clear/cloudy, reduced visibility such as mist, fog, haze and smoke, light rain/drizzle, heavy rain, snow/ice, and severe storms covering thunderstorms and squalls). Adding these groups to the baseline changed the test RMSE only from 744.9 to 744.0, and a partial F-test found no significant gain (p = 0.30); removing all weather information costs only about 2 RMSE units, so hour of day and weekday dominate hourly traffic in a linear model. These results support the choice to exclude the labels, with two caveats: a linear model cannot capture interactions such as fog mattering more during rush hour, and the severe-storm group has only 239 hours. 📓 **Full notebook:** `traffic-analysis_full.ipynb` (sections 1–6).
+The decision to leave weather labels out of the features was also tested. The 37 textual weather descriptions were merged into six groups with a similar effect on driving conditions (clear/cloudy, reduced visibility such as mist, fog, haze and smoke, light rain/drizzle, heavy rain, snow/ice, and severe storms covering thunderstorms and squalls). Adding these groups to the baseline changed the test RMSE only from 744.9 to 744.0, and a partial F-test found no significant gain (p = 0.30); removing all weather information costs only about 2 RMSE units, so hour of day and weekday dominate hourly traffic in a linear model. These results support the choice to exclude the labels, with two caveats: a linear model cannot capture interactions such as fog mattering more during rush hour, and the severe-storm group has only 239 hours. 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (sections 5,6).
 
 ## 🌲 Random Forest Modeling
 
@@ -113,3 +113,30 @@ Permutation importance measures the increase in test RMSE after shuffling an inp
 The notebook also examines errors by hour, weekday/weekend, and season. On the test set, summer has the lowest seasonal MAE (202.9 vehicles/hour), while winter has the highest (332.0). Weekend bias is −50.1 vehicles/hour and spring bias is −71.0, where bias is defined as actual minus predicted; negative values indicate average overprediction. These breakdowns show that overall scores do not describe performance equally well for every time segment.
 
 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (Section 7).
+
+## ⚡ XGBoost & LightGBM Modeling
+
+XGBoost and LightGBM were implemented as gradient boosting baselines and evaluated using the same chronological train-test split and 23 engineered input features as the previous models. The preprocessing pipeline passes numeric features through and one-hot encodes `season`, resulting in **25 model inputs after preprocessing**. Both models were evaluated using R², RMSE, and MAE.
+
+### Model setup
+
+Both models used 300 boosting estimators, a learning rate of 0.1, and a fixed random seed (`random_state=42`) for reproducibility. XGBoost used a maximum tree depth of 6, while LightGBM used 31 leaves with no explicit maximum depth. These are baseline configurations; extensive hyperparameter tuning and final model selection are outside the scope of this section.
+
+### Test-set results
+
+| Model | Test R² | Test RMSE | Test MAE |
+|---|---:|---:|---:|
+| XGBoost baseline | 0.9420 | 474.352 | 274.293 |
+| LightGBM baseline | **0.9429** | **470.897** | **269.214** |
+
+LightGBM slightly outperformed XGBoost, achieving a lower RMSE and MAE and a marginally higher R². The performance difference is relatively small, so these results alone do not establish which model should be selected as the final model.
+
+### Feature importance
+
+Permutation importance was calculated on the test set using 10 repeats and the increase in RMSE after shuffling each feature. The results show that **time-related features dominate predictions in both models**.
+
+For XGBoost, the most influential features were `hour_cos` (1,048.44), `hour` (860.91), and `day_of_week` (393.57). For LightGBM, the top three were `hour` (931.91), `hour_cos` (682.82), and `day_of_week` (291.86). The `is_rush_hour` feature had a larger importance score in LightGBM (266.06) than in XGBoost (115.98), while temperature had a moderate contribution in both models.
+
+These findings reinforce the importance of daily and weekly traffic patterns. Permutation importance reflects how much a model relies on a feature for prediction; it does not establish a causal relationship.
+
+📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (section 8).
