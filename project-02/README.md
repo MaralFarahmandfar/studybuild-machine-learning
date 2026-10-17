@@ -140,3 +140,41 @@ For XGBoost, the most influential features were `hour_cos` (1,048.44), `hour` (8
 These findings reinforce the importance of daily and weekly traffic patterns. Permutation importance reflects how much a model relies on a feature for prediction; it does not establish a causal relationship.
 
 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (section 8).
+
+## 🔬  Hyperparameter Tuning + Model Evaluation
+
+Building upon the gradient boosting baselines, an advanced optimization and diagnostic framework was implemented in section 9 of the project notebook (`notebooks/traffic_volume_prediction.ipynb`). This phase focused on rigorous hyperparameter tuning using Optuna, followed by multi-model performance comparisons and in-depth error diagnostics.
+
+### Optuna Optimization Setup
+
+To maximize model performance, automated hyperparameter tuning was conducted for **XGBoost**, **LightGBM**, and **Random Forest** using **Optuna** (with a TPE sampler and a fixed seed of `42`) coupled with **5-fold Time-Series Cross-Validation**. 
+
+- **Trials:** 300 trials per model.
+- **Preprocessing:** All models were wrapped in full pipelines ensuring that numeric features passed through and the `season` feature was one-hot encoded, consistently utilizing **25 features after preprocessing** to maintain a fair baseline for comparison.
+- **Objective:** Minimizing Cross-Validation Root Mean Squared Error (CV RMSE).
+- **Dependency Note:** To display Optuna's progress bar (`show_progress_bar=True`), ensure that the optional graphical dependency `tqdm` is installed in your environment (run `pip install tqdm` if needed).
+
+### Optimized Model Comparison
+
+After 300 trials of optimization, each model was refit on the full training set (32,460 rows) and evaluated on the chronological test set (8,115 rows). 
+
+| Model | Features | Train R² | Test R² | CV RMSE | Train RMSE | Test RMSE | Test MAE | Test MAPE (%) |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| XGBoost (Tuned) | 25 | 0.9535 | 0.9441 | 485.54 | 428.94 | 465.84 | 265.25 | 13.42 |
+| LightGBM (Tuned) | 25 | 0.9543 | 0.9439 | 484.62 | 425.29 | 466.56 | 263.71 | 13.37 |
+| **Random Forest (Tuned)** | **25** | **0.9617** | **0.9446** | **484.27** | **388.94** | **463.76** | **263.44** | **12.59** |
+
+*RMSE and MAE are reported in vehicles per hour.*
+
+Following hyperparameter tuning, **Random Forest emerged as the optimal model**, achieving the lowest Test RMSE (**463.76**), lowest MAE (**263.44**), lowest MAPE (**12.59%**), and highest Test R² (**0.9446**). XGBoost and LightGBM followed closely, with Optuna successfully narrowing the performance gap among all candidate algorithms.
+
+### Key Visualizations & Diagnostics
+
+The evaluation workflow incorporates comprehensive visual diagnostics for the best model:
+
+1. **Optimization History:** Demonstrates rapid convergence within the initial 30 to 50 trials, stabilizing into a robust plateau around a CV RMSE of 484.27.
+2. **Hyperparameter Importances:** Identifies `max_features` (accounting for ~82% of performance variance) and `bootstrap` (~14%) as the most dominant drivers of Random Forest optimization success.
+3. **Parallel Coordinates:** Highlights multi-dimensional interactions, showing optimal clustering where `bootstrap = True`, `max_features = sqrt`, and `max_depth` ranges between 16 and 20.
+4. **Residual Analysis & Diagnostics:** Confirms that prediction errors remain tightly centered around zero with minimal systematic bias across the 24-hour cycle. Time-series verification over the final 7 days of the test period proves high tracking precision across both bimodal weekday rush hours and single-peak weekend profiles.
+
+📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (Section 9).
