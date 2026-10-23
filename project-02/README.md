@@ -197,3 +197,44 @@ To interpret the tuning behavior and verify out-of-sample reliability for the wi
 - **Last 7 Days of the Test Period:** A chronological overlay of actual vs. predicted volume over the final test week (**2018-09-24 to 2018-10-01**) demonstrates high precision in capturing both sharp bimodal weekday rush-hour peaks and softer unimodal weekend profiles.
 
 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (Section 9).
+## 10. Final Model & Final Analysis
+
+This section evaluates the selected traffic forecasting model, compares it with baseline approaches, interprets its predictions, and investigates where its errors are concentrated.
+
+### Section Overview
+
+| Subsection | Focus |
+|---|---|
+| 10.1 — Model Comparison | Compare Random Forest, XGBoost, and LightGBM using time-series cross-validation. |
+| 10.2 — Naive Baseline | Establish a reference forecast using average traffic for each weekday–hour combination. |
+| 10.3 — Final Model | Evaluate the selected Random Forest model on the chronological test set. |
+| 10.4 — Model Comparison | Compare the final model's performance with alternative models and baselines. |
+| 10.5 — SHAP Analysis | Interpret feature contributions to the final model's predictions. |
+| 10.6 — Error Analysis | Investigate prediction errors by holiday, weather, traffic level, and time-related groups. |
+| 10.7 — Interpretation | Explain the model's accuracy and practical limitations in non-technical terms. |
+| 10.8 — Limitations | Discuss missing observations, limited test coverage, excluded inputs, and the single-location dataset. |
+| 10.9 — Recommendations and Next Steps | Identify potential improvements, including holiday indicators, lag features, and forecast intervals. |
+| 10.10 — Final Conclusion | Summarize the model's performance, main findings, and recommended improvements. |
+
+### Final Model Performance
+
+The selected Random Forest model was evaluated on a chronological holdout containing 8,115 hourly observations.
+
+| Metric | Result |
+|---|---:|
+| Test R² | 0.9446 |
+| Test RMSE | 463.7 vehicles/hour |
+| Test MAE | 264.5 vehicles/hour |
+| Test WAPE | Approximately 8.0% |
+| Improvement over weekday–hour baseline (RMSE) | 6.9% |
+| Improvement over the best linear regression model (RMSE) | 23.2% |
+
+### Key Findings
+
+- **Temporal patterns dominate:** Time-related features account for most of the model's predictive power.
+- **Public holidays are a major source of error:** They represent approximately 2.7% of test hours but contribute around 11% of total absolute error. The model tends to overpredict traffic during holiday mornings.
+- **Weather and seasonal conditions matter for error analysis:** Winter and reduced-visibility conditions are among the more challenging cases, although weather labels were not used as model inputs.
+- **Important data limitations remain:** Approximately 22.8% of hourly observations are missing, including a long gap in the dataset. The model also covers only one traffic-counting station and cannot use previous-hour traffic through lag features.
+- **Future improvements:** Add holiday information as a model input, evaluate weather-related features with tree-based models, build lag features where observations are continuous, and assess performance over a longer test period.
+
+Overall, the final model improves on the baseline approaches, but holiday-related traffic patterns and gaps in the historical data remain important limitations.
