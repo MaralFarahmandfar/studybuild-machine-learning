@@ -18,12 +18,12 @@
       "n_features": 25.0,
       "n_train": 32460.0,
       "best_cv_rmse": 485.5363,
-      "train R2": 0.9534,
-      "test R2": 0.9439,
-      "train RMSE": 429.4305,
-      "test RMSE": 466.6683,
-      "test MAE": 266.4213,
-      "test MAPE (%)": 13.567
+      "train R2": 0.9535,
+      "test R2": 0.9441,
+      "train RMSE": 428.9383,
+      "test RMSE": 465.837,
+      "test MAE": 265.248,
+      "test MAPE (%)": 13.4167
     }
   },
   "LightGBM": {
@@ -69,12 +69,12 @@
       "n_features": 25.0,
       "n_train": 32460.0,
       "best_cv_rmse": 484.2659,
-      "train R2": 0.9618,
+      "train R2": 0.9617,
       "test R2": 0.9446,
-      "train RMSE": 388.8719,
-      "test RMSE": 463.8105,
-      "test MAE": 263.4981,
-      "test MAPE (%)": 12.58
+      "train RMSE": 388.9369,
+      "test RMSE": 463.7611,
+      "test MAE": 263.4351,
+      "test MAPE (%)": 12.5938
     }
   }
 }

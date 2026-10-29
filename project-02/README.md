@@ -143,29 +143,28 @@ These findings reinforce the importance of daily and weekly traffic patterns. Pe
 
 ## 🔬 Hyperparameter Tuning + Model Evaluation
 
-Building upon the tree-based and gradient boosting baselines from Sections 7 and 8, an end-to-end Bayesian optimization and diagnostic framework was implemented in Section 9 (`notebooks/traffic_volume_prediction.ipynb`). This final phase focused on automated hyperparameter tuning using Optuna, multi-metric model benchmarking, and granular residual diagnostics to select the best production model.
+Building upon the tree-based and gradient boosting baselines, an end-to-end Bayesian optimization and diagnostic framework was implemented in Section 9 (`notebooks/traffic_volume_prediction.ipynb`). This final phase focused on automated hyperparameter tuning using Optuna, artifact persistence, multi-metric model benchmarking, and granular residual diagnostics to select the best production model.
 
 ### Optuna Optimization Setup
 
-To maximize predictive accuracy without data leakage, automated hyperparameter tuning was conducted for **XGBoost**, **LightGBM**, and **Random Forest** on the chronological training set (**32,460 observations**) and evaluated on the held-out test period (**8,115 observations**).
+To maximize predictive accuracy without data leakage, automated hyperparameter tuning was conducted for **XGBoost**, **LightGBM**, and **Random Forest** on the chronological training set (**32,460 observations**) and evaluated on the held-out test period.
 
-- **Optimization Engine:** Optuna configured with a Tree-structured Parzen Estimator (TPE) sampler (`seed=42`) over **300 trials per model**.
-- **Validation Strategy:** **5-fold Time-Series Cross-Validation** (`TimeSeriesSplit`), preserving temporal order across every training and validation fold.
-- **Leak-Free Preprocessing:** Each estimator was encapsulated inside a full preprocessing pipeline (passing numerical features through and one-hot encoding the categorical `season` feature), resulting in **25 input features after preprocessing**.
+- **Optimization Engine:** Optuna configured with a Tree-structured Parzen Estimator (TPE) sampler over **300 trials per model**.
+- **Validation Strategy:** **5-fold Time-Series Cross-Validation**, preserving temporal order across every training and validation fold.
+- **Preprocessing Consistency:** All candidate models were evaluated on the exact same **25 preprocessed features** to ensure a fair baseline for comparison.
 - **Objective Metric:** Minimizing mean Cross-Validation Root Mean Squared Error (**CV RMSE**).
-- **Dependency Note:** To render Optuna's live progress bar (`show_progress_bar=True`), ensure that the optional graphical dependency `tqdm` is installed in your environment (`pip install tqdm`).
 
 ### Optimal Hyperparameter Configurations
 
 Across 300 trials per algorithm, Optuna identified the following optimal configurations:
 
-- **Random Forest (Best Overall):** `n_estimators=800`, `max_depth=16`, `min_samples_split=9`, `min_samples_leaf=4`, `max_features='sqrt'`, `bootstrap=True`, `max_samples=0.9070`, `ccp_alpha=0.0`.
-- **XGBoost:** `n_estimators=300`, `max_depth=7`, `learning_rate=0.0145`, `min_child_weight=20`, `subsample=0.6939`, `colsample_bytree=0.8202`, `colsample_bylevel=0.6365`, `gamma=0.0548`, `reg_alpha=0.0`, `reg_lambda=0.1148`, `max_delta_step=0`.
-- **LightGBM:** `n_estimators=400`, `max_depth=9`, `num_leaves=53`, `learning_rate=0.0138`, `min_child_samples=71`, `subsample=0.6054`, `subsample_freq=4`, `colsample_bytree=0.6002`, `reg_alpha=0.0074`, `reg_lambda=0.1610`, `min_split_gain=0.1251`.
+- **Random Forest (Best Overall):** `bootstrap=True`, `n_estimators=800`, `max_depth=16`, `min_samples_split=9`, `min_samples_leaf=4`, `max_features='sqrt'`, `ccp_alpha=0.0`, `max_samples=0.907022`.
+- **XGBoost:** `n_estimators=300`, `max_depth=7`, `learning_rate=0.014517`, `min_child_weight=20`, `subsample=0.693909`, `colsample_bytree=0.820198`, `colsample_bylevel=0.636542`, `gamma=0.05483`, `reg_alpha=0.0`, `reg_lambda=0.114826`, `max_delta_step=0`.
+- **LightGBM:** `max_depth=9`, `n_estimators=400`, `num_leaves=53`, `learning_rate=0.013813`, `min_child_samples=71`, `subsample=0.605365`, `subsample_freq=4`, `colsample_bytree=0.600241`, `reg_alpha=0.007411`, `reg_lambda=0.160984`, `min_split_gain=0.125121`.
 
 ### Optimized Model Comparison
 
-After tuning, each model was refit on the complete training set and benchmarked on the chronological test set across multiple regression metrics:
+After tuning, each model was refit on the complete training set (`n_train = 32,460`) and benchmarked on the chronological test set across multiple regression metrics:
 
 | Model | Features | Train R² | Test R² | CV RMSE | Train RMSE | Test RMSE | Test MAE | Test MAPE (%) |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
@@ -173,30 +172,31 @@ After tuning, each model was refit on the complete training set and benchmarked 
 | LightGBM (Tuned) | 25 | 0.9543 | 0.9439 | 484.62 | 425.29 | 466.56 | 263.71 | 13.37 |
 | **Random Forest (Tuned)** | **25** | **0.9617** | **0.9446** | **484.27** | **388.94** | **463.76** | **263.44** | **12.59** |
 
-*RMSE and MAE are reported in vehicles per hour.*
+*Note: Exact unrounded values from evaluation logs — Random Forest (`CV RMSE: 484.2659`, `Train RMSE: 388.9369`, `Test RMSE: 463.7611`, `MAE: 263.4351`, `MAPE: 12.5938%`), XGBoost (`CV RMSE: 485.5363`, `Train RMSE: 428.9383`, `Test RMSE: 465.8370`, `MAE: 265.2480`, `MAPE: 13.4167%`), and LightGBM (`CV RMSE: 484.6184`, `Train RMSE: 425.2945`, `Test RMSE: 466.5627`, `MAE: 263.7058`, `MAPE: 13.3677%`). RMSE and MAE are measured in vehicles per hour.*
 
 **Key Takeaways:**
-- **Overall Winner:** **Random Forest emerged as the best-performing model** across every single evaluation metric, achieving the lowest CV RMSE (**484.27**), lowest Test RMSE (**463.76**), lowest Test MAE (**263.44**), lowest Test MAPE (**12.59%**), and highest Test R² (**0.9446**).
-- **Gains Over Baselines:** Compared to the earlier manual baselines in Sections 7 and 8, Optuna tuning reduced Test RMSE across all models—improving Random Forest from **493.97** (baseline) and **476.30** (manual grid) down to **463.76**, XGBoost from **474.35** to **465.84**, and LightGBM from **470.90** to **466.56**.
-- **Model Convergence:** While LightGBM edged out XGBoost in CV RMSE (**484.62** vs. **485.54**) and MAE (**263.71** vs. **265.25**), XGBoost achieved a slightly lower Test RMSE (**465.84** vs. **466.56**). Overall, Bayesian optimization substantially narrowed the performance gap between bagging and boosting architectures.
+- **Overall Winner:** **Random Forest emerged as the best-performing model** across every evaluation metric, achieving the lowest CV RMSE (**484.27**), lowest Test RMSE (**463.76**), lowest Test MAE (**263.44**), lowest Test MAPE (**12.59%**), and highest Test R² (**0.9446**).
+- **Model Convergence:** While LightGBM achieved a slightly lower CV RMSE (**484.62** vs. **485.54**), Test MAE (**263.71** vs. **265.25**), and Test MAPE (**13.37%** vs. **13.42%**), XGBoost edged it out in Test RMSE (**465.84** vs. **466.56**) and Test R² (**0.9441** vs. **0.9439**). Overall, Optuna optimization successfully narrowed the performance gap among the candidates.
+- **Artifact Persistence:** All fitted pipelines (`RandomForest_optimizer.joblib`, `XGBoost_optimizer.joblib`, `LightGBM_optimizer.joblib`), SQLite study history (`optuna_history.db`), trial histories (`*_trials.csv`), parameter summaries (`tuning_summary.json`), and evaluation exports (`legacy_predictions.csv`, `weather_group.csv`, `cv_folds.csv`) are systematically organized under `../artifacts/`.
 
 ### Optimization Analysis & Residual Diagnostics
 
 To interpret the tuning behavior and verify out-of-sample reliability for the winning **Random Forest** model, two sets of visual diagnostics were generated:
 
 #### 1. Optuna Optimization Visuals
-- **Optimization History:** The search started at an initial CV RMSE near **494** and achieved rapid convergence within the first **30 to 50 trials**, stabilizing into a consistent plateau at **484.27**.
-- **Hyperparameter Importances:** Variance-based importance analysis revealed that **`max_features`** (**0.80 / 80%**) and **`bootstrap`** (**0.15 / 15%**) drove **95%** of total tuning gains. Restricting split candidates (`max_features='sqrt'`) and enabling bootstrap resampling (`bootstrap=True`) effectively decorrelated individual trees. Structural parameters played a minor secondary role: `min_samples_split` (**0.02**), `ccp_alpha` (**0.01**), `max_depth` (**0.01**), `min_samples_leaf` (**<0.01**), and `n_estimators` (**<0.01**).
-- **Parallel Coordinates:** Multi-dimensional trajectory lines confirmed that top-performing trials consistently clustered around `bootstrap=True`, `max_features='sqrt'`, `max_depth` between **16 and 20**, and minimal post-pruning (`ccp_alpha ≈ 0.0`).
+- **Optimization History:** The search started at an initial CV RMSE of approximately **494** and showed rapid improvement during the first **30 to 50 trials**, eventually stabilizing into a reliable best-value plateau at **484.27**.
+- **Hyperparameter Importances:** Relative impact analysis across the 300 trials confirmed that **`max_features`** (**score: 0.81 / ~82%**) was overwhelmingly the most influential parameter, followed by **`bootstrap`** (**score: 0.13 / 13%**), together accounting for ~**95%** of the performance variance. **`min_samples_split`** showed a very minor effect (**score: 0.03**), while the remaining parameters—**`ccp_alpha`** (**0.01**), **`max_depth`** (**<0.01**), **`min_samples_leaf`** (**<0.01**), and **`n_estimators`** (**<0.01**)—had negligible isolated impact within their explored ranges. Selecting `max_features='sqrt'` and `bootstrap=True` effectively decorrelated the ensemble and prevented overfitting without relying on aggressive post-pruning (`ccp_alpha=0.0`).
+- **Parallel Coordinates:** Multi-dimensional trajectory analysis maps each trial by its Cross-Validation RMSE, where darker lines represent better-performing regions of the search space (reaching **484.27**). Tracing the optimal (yellow) path across the axes highlights the winning interaction: `bootstrap=True`, `max_features='sqrt'`, `n_estimators=800`, `max_depth=16`, `min_samples_split=9`, `min_samples_leaf=4`, `ccp_alpha=0.0`, and `max_samples=0.907`.
 
 #### 2. Six-Panel Residual Diagnostics Dashboard
-- **Actual vs. Predicted:** Test predictions align tightly along the 45-degree perfect-prediction line across the entire traffic spectrum (**0 to 7,000 vehicles/hour**), showing no saturation at peak volumes.
-- **Residuals vs. Predicted:** Residuals scatter symmetrically around the zero baseline. Moderate variance widening appears at mid-to-high volumes (2,500–6,000 vehicles/hour), alongside a few negative outliers caused by sudden, unrecorded traffic drops.
-- **Residual Distribution & Normal Q-Q Plot:** The error histogram forms a sharp, symmetric bell curve centered strictly at zero. The Q-Q plot closely tracks the theoretical normal distribution within ±2 standard deviations, with left-tail deviations reflecting isolated low-volume anomalies.
-- **Residuals by Hour of Day:** Mean hourly residuals remain flat near zero across all 24 hours, proving that cyclical time transformations successfully eliminated diurnal bias. The ±1 standard deviation band widens naturally during active daytime commuting hours (06:00–18:00) and narrows overnight.
-- **Last 7 Days of the Test Period:** A chronological overlay of actual vs. predicted volume over the final test week (**2018-09-24 to 2018-10-01**) demonstrates high precision in capturing both sharp bimodal weekday rush-hour peaks and softer unimodal weekend profiles.
+- **Actual vs. Predicted:** Predictions closely track the 45-degree perfect-prediction line (yellow) across the entire traffic volume range (**0 to 7,000 vehicles/hour**), confirming high accuracy (Test R² = **0.9446**), though slight **heteroscedasticity** is visible as error spread widens above **4,000 vehicles/hour**.
+- **Residuals vs. Predicted:** Residuals are centered close to zero overall (mean residual of approximately **-9 vehicles/hour**), indicating no massive systemic bias. Variance expands at higher predicted volumes alongside isolated extreme negative residuals (representing over-predictions during high-volume periods). Conditional error analysis shows non-uniform bias across specific regimes: approximately **-60 vehicles/hour in spring**, **-10 on weekends**, and **-960 on federal holidays**.
+- **Residual Distribution & Normal Q-Q Plot:** The error histogram is centered around zero and approximately bell-shaped, but exhibits **leptokurtic behavior (heavy tails)**. In the Normal Q-Q Plot, the middle quantiles align tightly with the theoretical normal line, while the tails deviate significantly (particularly the lower tail dropping sharply), confirming that rare extreme errors occur more frequently than in a strictly normal distribution.
+- **Residuals by Hour of Day:** The mean residual (white line) stays flat near zero across the entire 24-hour cycle, proving the model maintains no systematic diurnal bias. However, the error variance (purple shaded area, **±1 std**) widens noticeably during volatile rush hours (**6 AM – 9 AM** and **3 PM – 6 PM**).
+- **Last 7 Days of the Test Period:** The chronological overlay for the final test week (**2018-09-24 to 2018-10-01**) confirms exceptional tracking precision across both bimodal weekday rush-hour peaks and unimodal weekend traffic drops.
 
 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (Section 9).
+
 ## 10. Final Model & Final Analysis
 
 ### 10.1 Final Model Selection
