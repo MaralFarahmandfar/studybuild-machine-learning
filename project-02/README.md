@@ -199,42 +199,130 @@ To interpret the tuning behavior and verify out-of-sample reliability for the wi
 📓 **Notebook:** `notebooks/traffic_volume_prediction.ipynb` (Section 9).
 ## 10. Final Model & Final Analysis
 
-This section evaluates the selected traffic forecasting model, compares it with baseline approaches, interprets its predictions, and investigates where its errors are concentrated.
+### 10.1 Final Model Selection
 
-### Section Overview
+Random Forest, XGBoost, and LightGBM were tuned and evaluated using time-series cross-validation. Random Forest was selected as the final model because it achieved the lowest cross-validation RMSE. The test-set results of all three models were very close, indicating similar predictive performance.
 
-| Subsection | Focus |
-|---|---|
-| 10.1 — Model Comparison | Compare Random Forest, XGBoost, and LightGBM using time-series cross-validation. |
-| 10.2 — Naive Baseline | Establish a reference forecast using average traffic for each weekday–hour combination. |
-| 10.3 — Final Model | Evaluate the selected Random Forest model on the chronological test set. |
-| 10.4 — Model Comparison | Compare the final model's performance with alternative models and baselines. |
-| 10.5 — SHAP Analysis | Interpret feature contributions to the final model's predictions. |
-| 10.6 — Error Analysis | Investigate prediction errors by holiday, weather, traffic level, and time-related groups. |
-| 10.7 — Interpretation | Explain the model's accuracy and practical limitations in non-technical terms. |
-| 10.8 — Limitations | Discuss missing observations, limited test coverage, excluded inputs, and the single-location dataset. |
-| 10.9 — Recommendations and Next Steps | Identify potential improvements, including holiday indicators, lag features, and forecast intervals. |
-| 10.10 — Final Conclusion | Summarize the model's performance, main findings, and recommended improvements. |
+### 10.2 Final Model Performance
 
-### Final Model Performance
-
-The selected Random Forest model was evaluated on a chronological holdout containing 8,115 hourly observations.
-
-| Metric | Result |
+| Metric | Final Random Forest |
 |---|---:|
 | Test R² | 0.9446 |
-| Test RMSE | 463.7 vehicles/hour |
-| Test MAE | 264.5 vehicles/hour |
-| Test WAPE | Approximately 8.0% |
-| Improvement over weekday–hour baseline (RMSE) | 6.9% |
-| Improvement over the best linear regression model (RMSE) | 23.2% |
+| Test RMSE | 463.8 vehicles/hour |
+| Test MAE | 263.5 vehicles/hour |
+| Test WAPE | 8.0% |
+| Test MAPE | 12.59% |
 
-### Key Findings
+The model explains approximately 94.5% of the variation in traffic volume on the test set.
 
-- **Temporal patterns dominate:** Time-related features account for most of the model's predictive power.
-- **Public holidays are a major source of error:** They represent approximately 2.7% of test hours but contribute around 11% of total absolute error. The model tends to overpredict traffic during holiday mornings.
-- **Weather and seasonal conditions matter for error analysis:** Winter and reduced-visibility conditions are among the more challenging cases, although weather labels were not used as model inputs.
-- **Important data limitations remain:** Approximately 22.8% of hourly observations are missing, including a long gap in the dataset. The model also covers only one traffic-counting station and cannot use previous-hour traffic through lag features.
-- **Future improvements:** Add holiday information as a model input, evaluate weather-related features with tree-based models, build lag features where observations are continuous, and assess performance over a longer test period.
+Compared with the weekday-hour mean baseline, the final model reduced RMSE by **6.8%**. Compared with Linear Regression V4, RMSE decreased by **23.2%** and MAE decreased by **38.1%**.
 
-Overall, the final model improves on the baseline approaches, but holiday-related traffic patterns and gaps in the historical data remain important limitations.
+### 10.3 Feature Importance and SHAP Analysis
+
+SHAP analysis was performed on a sample of 1,500 observations from the 8,115-hour test set to understand the main drivers of the model's predictions.
+
+| Feature group | Mean absolute SHAP contribution | Share |
+|---|---:|---:|
+| Hour and commute patterns | 1,995.09 | 77.45% |
+| Weekday/weekend patterns | 358.49 | 13.92% |
+| Month and season | 98.63 | 3.83% |
+| Temperature and freezing conditions | 76.72 | 2.98% |
+| Year | 26.95 | 1.05% |
+| Cloud conditions | 14.76 | 0.57% |
+| Precipitation | 5.44 | 0.21% |
+
+Time-of-day and commute patterns were the dominant contributors to the model's predictions, followed by weekday/weekend patterns. These results describe model behavior and should not be interpreted as proof of causal relationships.
+
+### 10.4 Error Analysis by Day and Hour
+
+The model achieved a WAPE of **7.2% on weekdays** and **10.5% on weekends**. Errors varied by hour, with the highest MAE occurring at 07:00 (455.3 vehicles/hour), followed by 16:00 (454.1 vehicles/hour).
+
+| Metric | Weekdays | Weekends |
+|---|---:|---:|
+| MAE | 256.8 | 280.0 |
+| WAPE | 7.2% | 10.5% |
+
+The largest errors were concentrated in specific periods rather than being evenly distributed across the test set. This suggests that unusual traffic patterns and differences between expected and actual conditions remain important challenges.
+
+### 10.5 Holiday Analysis
+
+Holiday periods were a major source of prediction error.
+
+| Metric | Holiday hours | Non-holiday hours |
+|---|---:|---:|
+| WAPE | 46.9% | 7.2% |
+| MAE | 1,089.5 | 240.9 |
+| RMSE | 1,603.8 | 388.2 |
+| Bias | -954.2 | 15.2 |
+
+Holiday hours accounted for approximately **2.7% of the test set** but contributed around **11% of total absolute error**. All of the 20 largest absolute errors were overpredictions, and 16 occurred during holidays, mainly between 06:00 and 08:00.
+
+This pattern suggests that the model often expected more traffic than actually occurred during these holiday periods. Holiday labels and unusual traffic conditions should therefore be investigated further.
+
+### 10.6 Performance Under Different Conditions
+
+**Weather conditions**
+
+| Weather category | WAPE |
+|---|---:|
+| Clear/Cloudy | 7.3% |
+| Reduced Visibility | 12.0% |
+| Light Rain/Drizzle | 6.4% |
+| Heavy Rain | 6.5% |
+| Snow/Ice | 9.4% |
+| Severe Storm | 6.2% |
+
+**Traffic volume levels**
+
+| Actual traffic volume | WAPE |
+|---|---:|
+| Below 1,000 vehicles/hour | 22.7% |
+| 1,000–3,000 vehicles/hour | 16.2% |
+| 3,000–5,000 vehicles/hour | 7.0% |
+| 5,000 or more vehicles/hour | 5.0% |
+
+The model performed better at higher traffic volumes. Relative errors were substantially higher when traffic volume was low, where even moderate absolute errors can produce large percentage errors. Reduced-visibility conditions also showed weaker performance than clear/cloudy conditions.
+
+### 10.7 Seasonal Performance
+
+| Season | MAE (vehicles/hour) | WAPE |
+|---|---:|---:|
+| Winter | 327.6 | 10.4% |
+| Spring | 261.8 | 7.7% |
+| Summer | 195.7 | 5.8% |
+| Fall | 273.1 | 8.2% |
+
+The lowest errors occurred in summer, while winter showed the highest MAE and WAPE. Seasonal differences may reflect changes in traffic patterns and operating conditions and warrant further investigation.
+
+### 10.8 Limitations
+
+Despite its strong overall performance, the model has several limitations:
+
+1. **Missing data:** Approximately 22.8% of expected hourly observations are missing, including a gap of roughly ten months. This limits the continuity of the time series.
+2. **Limited geographic coverage:** The dataset represents one station and direction on I-94, so the results may not generalize to other roads or locations.
+3. **Historical data:** The dataset ends in September 2018 and may not fully represent current traffic patterns.
+4. **Holiday-related errors:** Holiday labels and atypical traffic patterns need further validation.
+5. **Low-volume predictions:** Relative errors are higher when actual traffic volume is low.
+6. **Limited temporal context:** The final model does not include explicit lag features representing traffic in previous hours or on previous days.
+7. **Unexpected events and sensor quality:** Sudden traffic changes may reflect unusual events or data-quality issues. These cases should be investigated rather than automatically interpreted as road closures or genuine changes in demand.
+8. **Generalization and validation:** Performance should be confirmed on a separate, untouched time period and, where possible, on additional stations.
+
+### 10.9 Recommendations for Future Work
+
+The following improvements could strengthen the model and its practical usefulness:
+
+1. **Improve data quality:** Investigate missing observations, validate holiday labels, and establish consistent data-cleaning rules.
+2. **Detect anomalies:** Develop checks for sensor failures, sudden drops, and unusual traffic patterns, using external information where available.
+3. **Explore temporal features:** Test lag features, such as traffic volume one hour earlier and 24 hours earlier, provided the data are sufficiently continuous and features are constructed without data leakage.
+4. **Improve difficult cases:** Investigate holiday periods, low-volume observations, reduced visibility, and winter conditions separately.
+5. **Evaluate additional features:** Test relevant weather, event, and calendar features using a validation strategy that respects chronological order.
+6. **Quantify uncertainty:** Consider prediction intervals to communicate the range of plausible traffic volumes rather than relying only on point predictions.
+7. **Test generalization:** Evaluate the selected model on an independent future time period and, if possible, data from other stations.
+
+### 10.10 Final Conclusion
+
+The final Random Forest model achieved strong predictive performance on the test set, with an R² of **94.46%**, an RMSE of **463.8 vehicles/hour**, an MAE of **263.5 vehicles/hour**, and a WAPE of **8.0%**. It outperformed the weekday-hour mean baseline and improved substantially over Linear Regression V4.
+
+The analysis showed that hour-of-day and commute patterns were the most influential feature group, followed by weekday/weekend patterns. However, performance was not uniform across all conditions. Holiday periods accounted for a disproportionate share of prediction errors, while low-volume traffic and reduced-visibility conditions presented additional challenges.
+
+**Overall, the model captures routine traffic patterns well, but its predictions are less reliable when traffic deviates from typical patterns.** Improving holiday labels and data quality, detecting potential sensor anomalies, evaluating temporal features, and validating the model on independent data are important next steps toward a more robust traffic forecasting system.
